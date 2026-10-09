@@ -6,7 +6,7 @@ from models import User, Trek, Booking, Admin
 class Database:
     def __init__(self, app):
         self.mongo = PyMongo(app)
-    
+
     # User operations
     def create_user(self, user):
         user_data = user.to_dict()
@@ -108,7 +108,6 @@ class Database:
         elif time_slot == 'afternoon':
             field = 'available_afternoon_slots'
         else:
-            # Fallback to old field for backward compatibility
             field = 'available_slots'
             
         result = self.mongo.db.treks.update_one(
@@ -143,7 +142,6 @@ class Database:
         active_bookings = self.mongo.db.bookings.count_documents({'booking_status': 'confirmed'})
         closed_treks = self.mongo.db.treks.count_documents({'is_active': False})
         
-        # Calculate total revenue
         pipeline = [
             {'$match': {'payment_status': 'completed'}},
             {'$group': {'_id': None, 'total': {'$sum': '$total_amount'}}}
@@ -151,7 +149,6 @@ class Database:
         revenue_result = list(self.mongo.db.bookings.aggregate(pipeline))
         total_revenue = revenue_result[0]['total'] if revenue_result else 0
         
-        # Get bookings per trek
         pipeline = [
             {'$group': {'_id': '$trek_id', 'count': {'$sum': 1}}},
             {'$lookup': {

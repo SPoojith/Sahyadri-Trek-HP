@@ -12,7 +12,7 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
     
     # MongoDB configuration
-    MONGO_URI = os.environ.get('MONGO_URI') or 'mongodb://localhost:27017/sahyadri_trek'
+    MONGO_URI = 'mongodb://arpit3346raut:ERwbAZzPpDfGRMHe@ac-lb69q9d-shard-00-00.kcdiq0q.mongodb.net:27017,ac-lb69q9d-shard-00-01.kcdiq0q.mongodb.net:27017,ac-lb69q9d-shard-00-02.kcdiq0q.mongodb.net:27017/sahyadri_trek?ssl=true&replicaSet=atlas-1204ly-shard-0&authSource=admin&appName=arpit3346raut'
     
     # Mail configuration (for sending trek passes)
     MAIL_SERVER = os.environ.get('MAIL_SERVER') or 'smtp.gmail.com'
@@ -24,8 +24,8 @@ class Config:
     
     # Session configuration
     SESSION_TYPE = 'mongodb'
-    SESSION_MONGODB = None  # Will be set in app.py
-    SESSION_MONGODB_DB = 'sahyadri_trek'
+    SESSION_MONGODB = None        # MUST remain None here (gets overwritten dynamically in app.py)
+    SESSION_MONGODB_DB = 'sahyadri_trek'  # Ensure this matches your targeted database name
     SESSION_COLLECTION = 'sessions'
     
     # Upload configuration

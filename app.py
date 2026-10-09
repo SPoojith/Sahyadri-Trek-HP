@@ -21,10 +21,10 @@ app.config.from_object(Config)
 
 # Initialize extensions
 mail = Mail(app)
-db = Database(app)
+mongo_db = Database(app)
 
 # Session configuration
-app.config['SESSION_MONGODB'] = db.mongo
+app.config['SESSION_MONGODB'] = mongo_db.mongo.cx
 Session(app)
 
 # Make get_trek_image available to all templates
@@ -67,7 +67,7 @@ def get_trek_image(trek_name):
 def index():
     # Get popular treks (first 6)
     try:
-        treks = db.get_all_treks()[:6]
+        treks = mongo_db.get_all_treks()[:6]
     except PyMongoError:
         treks = []
     return render_template('index.html', treks=treks)
@@ -75,14 +75,14 @@ def index():
 @app.route('/treks')
 def treks():
     try:
-        all_treks = db.get_all_treks()
+        all_treks = mongo_db.get_all_treks()
     except PyMongoError:
         all_treks = []
     return render_template('treks.html', treks=all_treks)
 
 @app.route('/trek/<trek_id>')
 def trek_detail(trek_id):
-    trek = db.get_trek_by_id(trek_id)
+    trek = mongo_db.get_trek_by_id(trek_id)
     if trek:
         return render_template('trek_detail.html', trek=trek)
     return "Trek not found", 404
@@ -93,7 +93,7 @@ def book_trek(trek_id):
         flash('Please login to book a trek', 'warning')
         return redirect(url_for('user_login'))
     
-    trek = db.get_trek_by_id(trek_id)
+    trek = mongo_db.get_trek_by_id(trek_id)
     if trek:
         return render_template('booking.html', trek=trek)
     return "Trek not found", 404
@@ -113,7 +113,7 @@ def process_booking():
         email = request.form.get('email')
         
         # Get trek details
-        trek = db.get_trek_by_id(trek_id)
+        trek = mongo_db.get_trek_by_id(trek_id)
         if not trek:
             return jsonify({'success': False, 'message': 'Trek not found'})
         
@@ -139,10 +139,10 @@ def process_booking():
         )
         
         # Save booking
-        booking_id = db.create_booking(booking)
+        booking_id = mongo_db.create_booking(booking)
         
         # Update trek slots based on time slot
-        db.update_trek_slots(trek_id, time_slot, -num_trekkers)
+        mongo_db.update_trek_slots(trek_id, time_slot, -num_trekkers)
         
         # Generate QR code for trek pass
         booking_ref = generate_booking_id()
@@ -150,7 +150,7 @@ def process_booking():
         qr_code = generate_qr_code(qr_data)
         
         # Update booking with QR code and reference
-        db.update_booking(booking_id, {
+        mongo_db.update_booking(booking_id, {
             'qr_code': qr_code,
             'booking_status': 'confirmed',
             'payment_status': 'completed',
@@ -180,13 +180,13 @@ def booking_success():
         return redirect(url_for('index'))
     
     # Get booking details
-    booking = db.get_booking_by_id(booking_id)
+    booking = mongo_db.get_booking_by_id(booking_id)
     if not booking:
         flash('Booking not found', 'danger')
         return redirect(url_for('index'))
     
     # Get trek details
-    trek = db.get_trek_by_id(booking.trek_id)
+    trek = mongo_db.get_trek_by_id(booking.trek_id)
     if not trek:
         flash('Trek information not found', 'danger')
         return redirect(url_for('index'))
@@ -204,7 +204,7 @@ def user_login():
         password = request.form.get('password')
         
         # Get user from database
-        user = db.get_user_by_email(email)
+        user = mongo_db.get_user_by_email(email)
         if user and user.check_password(password):
             session['user_id'] = str(user.id) if hasattr(user, 'id') else str(user.email)
             session['user_name'] = user.name
@@ -234,7 +234,7 @@ def register():
             return render_template('register.html')
         
         # Check if user already exists
-        if db.get_user_by_email(email):
+        if mongo_db.get_user_by_email(email):
             flash('Email already registered', 'danger')
             return render_template('register.html')
         
@@ -243,7 +243,7 @@ def register():
         user.set_password(password)
         
         # Save user
-        user_id = db.create_user(user)
+        user_id = mongo_db.create_user(user)
         
         # Auto-login the user after registration
         session['user_id'] = str(user_id)
@@ -267,19 +267,19 @@ def dashboard():
         return redirect(url_for('login'))
     
     # Get user bookings
-    user_bookings = db.get_bookings_by_user(session['user_id'])
+    user_bookings = mongo_db.get_bookings_by_user(session['user_id'])
     
     # Enhance bookings with trek details
     enhanced_bookings = []
     for booking in user_bookings:
-        trek = db.get_trek_by_id(booking.trek_id)
+        trek = mongo_db.get_trek_by_id(booking.trek_id)
         booking.trek_name = trek.name if trek else 'Unknown Trek'
         enhanced_bookings.append(booking)
     
     # Get user details
-    user = db.get_user_by_id(session['user_id'])
+    user = mongo_db.get_user_by_id(session['user_id'])
     if not user:
-        user = db.get_user_by_email(session['user_id'])
+        user = mongo_db.get_user_by_email(session['user_id'])
     
     return render_template('dashboard.html', bookings=enhanced_bookings, user=user)
 
@@ -290,9 +290,9 @@ def profile():
         return redirect(url_for('login'))
     
     # Get user details
-    user = db.get_user_by_id(session['user_id'])
+    user = mongo_db.get_user_by_id(session['user_id'])
     if not user:
-        user = db.get_user_by_email(session['user_id'])
+        user = mongo_db.get_user_by_email(session['user_id'])
     
     return render_template('profile.html', user=user)
 
@@ -311,7 +311,7 @@ def admin_login():
             return redirect(url_for('admin_dashboard'))
         
         # For production, check against database
-        # admin = db.get_admin_by_username(username)
+        # admin = mongo_db.get_admin_by_username(username)
         # if admin and admin.check_password(password):
         #     session['admin_id'] = str(admin.id)
         #     session['admin_username'] = admin.username
@@ -345,24 +345,24 @@ def admin_required(f):
 @admin_required
 def admin_dashboard():
     # Get statistics
-    stats = db.get_trek_statistics()
+    stats = mongo_db.get_trek_statistics()
     
     # Get recent bookings
-    recent_bookings = list(db.mongo.db.bookings.find().sort('created_at', -1).limit(10))
+    recent_bookings = list(mongo_db.mongo.mongo_db.bookings.find().sort('created_at', -1).limit(10))
     for booking in recent_bookings:
         # Add trek name to booking
-        trek = db.get_trek_by_id(booking['trek_id'])
+        trek = mongo_db.get_trek_by_id(booking['trek_id'])
         booking['trek_name'] = trek.name if trek else 'Unknown Trek'
         
         # Add user name to booking
-        user = db.get_user_by_id(booking['user_id'])
+        user = mongo_db.get_user_by_id(booking['user_id'])
         booking['user_name'] = user.name if user else 'Unknown User'
     
     # Get all treks
-    treks = db.get_all_treks()
+    treks = mongo_db.get_all_treks()
     
     # Get all users
-    users = list(db.mongo.db.users.find())
+    users = list(mongo_db.mongo.mongo_db.users.find())
     
     return render_template('admin_dashboard.html', 
                          stats=stats, 
@@ -374,15 +374,15 @@ def admin_dashboard():
 @admin_required
 def admin_bookings():
     # Get all bookings with related info
-    bookings_cursor = db.mongo.db.bookings.find().sort('created_at', -1)
+    bookings_cursor = mongo_db.mongo.mongo_db.bookings.find().sort('created_at', -1)
     bookings = []
     for booking_data in bookings_cursor:
         booking = Booking.from_dict(booking_data)
         # Add trek name
-        trek = db.get_trek_by_id(booking.trek_id)
+        trek = mongo_db.get_trek_by_id(booking.trek_id)
         booking.trek_name = trek.name if trek else 'Unknown Trek'
         # Add user name
-        user = db.get_user_by_id(booking.user_id)
+        user = mongo_db.get_user_by_id(booking.user_id)
         booking.user_name = user.name if user else 'Unknown User'
         bookings.append(booking)
     
@@ -391,7 +391,7 @@ def admin_bookings():
 @app.route('/admin/bookings/<booking_id>/edit', methods=['GET', 'POST'])
 @admin_required
 def edit_booking(booking_id):
-    booking = db.get_booking_by_id(booking_id)
+    booking = mongo_db.get_booking_by_id(booking_id)
     if not booking:
         flash('Booking not found', 'danger')
         return redirect(url_for('admin_bookings'))
@@ -410,7 +410,7 @@ def edit_booking(booking_id):
         }
         
         # Update booking
-        if db.update_booking(booking_id, update_data):
+        if mongo_db.update_booking(booking_id, update_data):
             flash('Booking updated successfully!', 'success')
         else:
             flash('Failed to update booking', 'danger')
@@ -418,22 +418,22 @@ def edit_booking(booking_id):
         return redirect(url_for('admin_bookings'))
     
     # Get trek for slot information
-    trek = db.get_trek_by_id(booking.trek_id)
+    trek = mongo_db.get_trek_by_id(booking.trek_id)
     
     return render_template('admin_edit_booking.html', booking=booking, trek=trek)
 
 @app.route('/admin/bookings/<booking_id>/cancel', methods=['POST'])
 @admin_required
 def cancel_booking(booking_id):
-    booking = db.get_booking_by_id(booking_id)
+    booking = mongo_db.get_booking_by_id(booking_id)
     if not booking:
         flash('Booking not found', 'danger')
         return redirect(url_for('admin_bookings'))
     
     # Update booking status
-    if db.update_booking(booking_id, {'booking_status': 'cancelled'}):
+    if mongo_db.update_booking(booking_id, {'booking_status': 'cancelled'}):
         # Restore slots
-        db.update_trek_slots(booking.trek_id, booking.time_slot, booking.num_trekkers)
+        mongo_db.update_trek_slots(booking.trek_id, booking.time_slot, booking.num_trekkers)
         flash('Booking cancelled successfully!', 'success')
     else:
         flash('Failed to cancel booking', 'danger')
@@ -443,7 +443,7 @@ def cancel_booking(booking_id):
 @app.route('/admin/treks')
 @admin_required
 def admin_treks():
-    treks = db.get_all_treks()
+    treks = mongo_db.get_all_treks()
     return render_template('admin_treks.html', treks=treks)
 
 @app.route('/admin/treks/add', methods=['GET', 'POST'])
@@ -473,7 +473,7 @@ def add_trek():
         )
         
         # Save trek
-        trek_id = db.create_trek(trek)
+        trek_id = mongo_db.create_trek(trek)
         if trek_id:
             flash('Trek added successfully!', 'success')
             return redirect(url_for('admin_treks'))
@@ -485,7 +485,7 @@ def add_trek():
 @app.route('/admin/treks/<trek_id>/edit', methods=['GET', 'POST'])
 @admin_required
 def edit_trek(trek_id):
-    trek = db.get_trek_by_id(trek_id)
+    trek = mongo_db.get_trek_by_id(trek_id)
     if not trek:
         flash('Trek not found', 'danger')
         return redirect(url_for('admin_treks'))
@@ -512,7 +512,7 @@ def edit_trek(trek_id):
         }
         
         # Update trek
-        if db.update_trek(trek_id, update_data):
+        if mongo_db.update_trek(trek_id, update_data):
             flash('Trek updated successfully!', 'success')
         else:
             flash('Failed to update trek', 'danger')
@@ -524,7 +524,7 @@ def edit_trek(trek_id):
 @app.route('/admin/treks/<trek_id>/delete', methods=['POST'])
 @admin_required
 def delete_trek(trek_id):
-    if db.delete_trek(trek_id):
+    if mongo_db.delete_trek(trek_id):
         flash('Trek deleted successfully!', 'success')
     else:
         flash('Failed to delete trek', 'danger')
@@ -534,7 +534,7 @@ def delete_trek(trek_id):
 @app.route('/admin/users')
 @admin_required
 def admin_users():
-    users = list(db.mongo.db.users.find())
+    users = list(mongo_db.mongo.mongo_db.users.find())
     # Convert to User objects
     user_objects = [User.from_dict(user) for user in users]
     return render_template('admin_users.html', users=user_objects)
@@ -542,7 +542,7 @@ def admin_users():
 @app.route('/admin/slots')
 @admin_required
 def admin_slots():
-    treks = db.get_all_treks()
+    treks = mongo_db.get_all_treks()
     from datetime import datetime
     today = datetime.now().strftime('%Y-%m-%d')
     return render_template('admin_slots.html', treks=treks, today=today)
@@ -550,7 +550,7 @@ def admin_slots():
 @app.route('/admin/slots/<trek_id>/update', methods=['POST'])
 @admin_required
 def update_slots(trek_id):
-    trek = db.get_trek_by_id(trek_id)
+    trek = mongo_db.get_trek_by_id(trek_id)
     if not trek:
         flash('Trek not found', 'danger')
         return redirect(url_for('admin_slots'))
@@ -559,7 +559,7 @@ def update_slots(trek_id):
     afternoon_slots = int(request.form.get('afternoon_slots', trek.available_afternoon_slots))
     
     # Update slots
-    db.update_trek(trek_id, {
+    mongo_db.update_trek(trek_id, {
         'available_morning_slots': morning_slots,
         'available_afternoon_slots': afternoon_slots
     })
@@ -578,7 +578,7 @@ def about():
 # API Routes for AJAX requests
 @app.route('/api/treks')
 def api_treks():
-    treks = db.get_all_treks()
+    treks = mongo_db.get_all_treks()
     treks_data = []
     for trek in treks:
         # Handle both old and new Trek model structures
@@ -609,7 +609,7 @@ def check_availability():
     time_slot = request.form.get('time_slot')
     num_trekkers = int(request.form.get('num_trekkers'))
     
-    trek = db.get_trek_by_id(trek_id)
+    trek = mongo_db.get_trek_by_id(trek_id)
     if trek:
         from datetime import datetime as dt
         available = is_trek_available(trek, dt.strptime(trek_date, '%Y-%m-%d').date(), time_slot, num_trekkers)
@@ -710,13 +710,13 @@ def download_trek_pass(booking_id):
     """Download trekking pass as PDF"""
     try:
         # Get booking details
-        booking = db.get_booking_by_id(booking_id)
+        booking = mongo_db.get_booking_by_id(booking_id)
         if not booking:
             flash('Booking not found', 'danger')
             return redirect(url_for('index'))
         
         # Get trek details
-        trek = db.get_trek_by_id(booking.trek_id)
+        trek = mongo_db.get_trek_by_id(booking.trek_id)
         if not trek:
             flash('Trek information not found', 'danger')
             return redirect(url_for('index'))
@@ -735,5 +735,7 @@ def download_trek_pass(booking_id):
         flash(f'Error generating trek pass: {str(e)}', 'danger')
         return redirect(url_for('index'))
 
+
 if __name__ == '__main__':
     app.run(debug=True)
+
