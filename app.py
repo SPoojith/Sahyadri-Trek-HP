@@ -691,7 +691,7 @@ def generate_trekking_pass_pdf(booking, trek):
     
     # QR Code placeholder text (since we can't easily embed the QR code in PDF)
     pdf.cell(0, 10, "QR Code for Entry Verification:", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
-    pdf.ln(25)
+    pdf.ln(5)
     pdf.image(qr_image_stream, x=(pdf.w - 30) / 2, w=30)
     pdf.ln(5)
     pdf.cell(0, 10, "Scan this QR code at the trek entrance", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
