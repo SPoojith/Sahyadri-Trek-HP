@@ -722,7 +722,9 @@ def download_trek_pass(booking_id):
             return redirect(url_for('index'))
         
         # Generate PDF
-        pdf_bytes = generate_trekking_pass_pdf(booking, trek)
+        pdf_output = generate_trekking_pass_pdf(booking, trek)
+        
+        pdf_bytes = bytes(pdf_output)
         
         # Create response
         response = make_response(pdf_bytes)
