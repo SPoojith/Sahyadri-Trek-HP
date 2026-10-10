@@ -620,6 +620,12 @@ def generate_trekking_pass_pdf(booking, trek):
     """Generate a PDF trekking pass"""
     from fpdf import FPDF
     from fpdf.enums import XPos, YPos
+
+    # 1. Decode the base64 string to bytes
+    qr_bytes = base64.b64decode(booking.qr_code)
+
+    # 2. Wrap it in a BytesIO stream so FPDF can read it like a file
+    qr_image_stream = io.BytesIO(qr_bytes)
     
     pdf = FPDF()
     pdf.add_page()
@@ -686,7 +692,7 @@ def generate_trekking_pass_pdf(booking, trek):
     # QR Code placeholder text (since we can't easily embed the QR code in PDF)
     pdf.cell(0, 10, "QR Code for Entry Verification:", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.ln(25)
-    pdf.cell(0, 10, "[QR CODE PLACEHOLDER]", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+    pdf.image(qr_image_stream, x=(pdf.w - 30) / 2, w=30)
     pdf.ln(5)
     pdf.cell(0, 10, "Scan this QR code at the trek entrance", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     
