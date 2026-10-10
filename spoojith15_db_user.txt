@@ -1,0 +1,6 @@
+spoojith15_db_user
+
+arpit3346raut
+ERwbAZzPpDfGRMHe
+
+mongodb://arpit3346raut:ERwbAZzPpDfGRMHe@ac-lb69q9d-shard-00-00.kcdiq0q.mongodb.net:27017,ac-lb69q9d-shard-00-01.kcdiq0q.mongodb.net:27017,ac-lb69q9d-shard-00-02.kcdiq0q.mongodb.net:27017/sahyadri_trek?ssl=true&replicaSet=atlas-1204ly-shard-0&authSource=admin&appName=arpit3346raut
